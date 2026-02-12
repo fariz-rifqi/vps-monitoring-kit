@@ -8,7 +8,7 @@ source "${SCRIPT_DIR}/.env"
 log(){ echo -e "\n[+] $*\n"; }
 
 log "Install Netdata (Parent)"
-bash <(curl -Ss https://my-netdata.io/kickstart.sh) --stable-channel --disable-telemetry || true
+bash <(curl -fsSL https://get.netdata.cloud/kickstart.sh) --stable-channel --disable-telemetry || true
 systemctl enable --now netdata
 
 log "Configure Netdata as Parent receiver (streaming)"
