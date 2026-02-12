@@ -1,16 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ============================================================
-# CraftbyZR Monitoring Server Installer
-# Target: Ubuntu 22.04 LTS / 24.04 LTS
-# Installs:
-# - Netdata (Parent) + Telegram alerts (optional)
-# - Uptime Kuma (Docker)
-# - Nginx reverse proxy + Basic Auth
-# - UFW + Fail2ban
-# - HTTPS via Certbot (Let's Encrypt)
-# ============================================================
+# CraftbyZR Monitoring Server Installer (Subdomain mode)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/.env"
@@ -18,23 +9,17 @@ ENV_FILE="${SCRIPT_DIR}/.env"
 log(){ echo -e "\n[+] $*\n"; }
 die(){ echo -e "\n[!] $*\n" >&2; exit 1; }
 
-require_root() {
-  [[ "${EUID}" -eq 0 ]] || die "Run as root: sudo bash ${BASH_SOURCE[0]}"
-}
+require_root() { [[ "${EUID}" -eq 0 ]] || die "Run as root: sudo bash ${BASH_SOURCE[0]}"; }
 
 load_env() {
-  if [[ ! -f "${ENV_FILE}" ]]; then
-    die ".env not found. Copy and edit:\n  cp .env.example .env\n  nano .env"
-  fi
-
-  # shellcheck disable=SC1090
+  [[ -f "${ENV_FILE}" ]] || die ".env not found. Do:\n  cp .env.example .env\n  nano .env"
   set -a
+  # shellcheck disable=SC1090
   source "${ENV_FILE}"
   set +a
 
-  : "${MON_DOMAIN:?Missing MON_DOMAIN}"
-  : "${NETDATA_PUBLIC_PATH:=/netdata}"
-  : "${KUMA_PUBLIC_PATH:=/kuma}"
+  : "${KUMA_DOMAIN:?Missing KUMA_DOMAIN}"
+  : "${NETDATA_DOMAIN:?Missing NETDATA_DOMAIN}"
   : "${BASIC_AUTH_USER:?Missing BASIC_AUTH_USER}"
   : "${BASIC_AUTH_PASS:?Missing BASIC_AUTH_PASS}"
   : "${KUMA_HOST_PORT:=3001}"
@@ -63,22 +48,21 @@ main() {
   log "5) Deploy Uptime Kuma (Docker Compose)"
   bash "${SCRIPT_DIR}/uptime-kuma/install.sh"
 
-  log "6) Configure Nginx reverse proxy + Basic Auth"
+  log "6) Configure Nginx (two subdomains) + Basic Auth"
   bash "${SCRIPT_DIR}/nginx/install.sh"
 
-  log "7) Enable HTTPS via Certbot"
+  log "7) Enable HTTPS via Certbot (both subdomains)"
   bash "${SCRIPT_DIR}/certbot/install.sh"
 
   log "Done ✅"
   echo "----------------------------------------------"
-  echo "Domain: https://${MON_DOMAIN}"
-  echo "Netdata: https://${MON_DOMAIN}${NETDATA_PUBLIC_PATH}/"
-  echo "Kuma:    https://${MON_DOMAIN}${KUMA_PUBLIC_PATH}/"
+  echo "Uptime Kuma : https://${KUMA_DOMAIN}/"
+  echo "Netdata     : https://${NETDATA_DOMAIN}/"
   echo "----------------------------------------------"
-  echo "Next steps:"
-  echo "1) Ensure DNS A record: monitor -> VPS IP"
-  echo "2) Open Kuma and set Telegram notifications"
-  echo "3) Run Netdata child installer on each VPS client"
+  echo "Notes:"
+  echo "1) Ensure both DNS A records point to this VPS IP (DNS only while issuing SSL):"
+  echo "   - ${KUMA_DOMAIN}"
+  echo "   - ${NETDATA_DOMAIN}"
 }
 
 main "$@"
